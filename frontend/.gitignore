@@ -1,0 +1,18 @@
+node_modules/
+.expo/
+dist/
+web-build/
+*.tsbuildinfo
+
+# Native build folders
+ios/
+android/
+
+# Environment & local
+.env*.local
+.env
+
+# OS
+.DS_Store
+Thumbs.db
+*.log

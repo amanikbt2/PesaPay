@@ -1,0 +1,89 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id          String    @id @default(uuid())
+  displayName String?
+  phoneNumber String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  payments    Payment[]
+
+  @@map("users")
+}
+
+model Merchant {
+  id                 String    @id @default(uuid())
+  displayName        String
+  merchantReference  String    @unique
+  tillNumber         String    // 5-7 digit Safaricom Till number
+  verificationStatus String    @default("VERIFIED") // UNVERIFIED, VERIFIED, SUSPENDED
+  enabled            Boolean   @default(true)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  payments           Payment[]
+
+  @@index([tillNumber])
+  @@map("merchants")
+}
+
+model Payment {
+  id                String         @id @default(uuid())
+  userId            String
+  merchantId        String
+  amountMinor       Int            // Stored in minor units (cents) to avoid floating point issues
+  currency          String         @default("KES")
+  status            String         @default("CREATED") // CREATED, PENDING_PROVIDER, STK_SENT, PROCESSING, SUCCEEDED, FAILED, CANCELLED, EXPIRED, UNKNOWN
+  idempotencyKey    String         @unique
+  provider          String         // "mock" or "daraja"
+  providerRequestId String?
+  checkoutRequestId String?        @unique
+  merchantRequestId String?
+  receiptNumber     String?        // e.g. Safaricom M-Pesa receipt code "NLJ7RT61SV"
+  resultCode        Int?
+  resultDescription String?
+  initiatedAt       DateTime       @default(now())
+  completedAt       DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  user              User           @relation(fields: [userId], references: [id])
+  merchant          Merchant       @relation(fields: [merchantId], references: [id])
+  events            PaymentEvent[]
+
+  @@index([userId])
+  @@index([merchantId])
+  @@index([checkoutRequestId])
+  @@map("payments")
+}
+
+model PaymentEvent {
+  id        String   @id @default(uuid())
+  paymentId String
+  eventType String
+  data      String?  // JSON string
+  createdAt DateTime @default(now())
+
+  payment   Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId])
+  @@map("payment_events")
+}
+
+model WebhookEvent {
+  id               String    @id @default(uuid())
+  provider         String    // "daraja"
+  providerEventId  String    @unique // e.g. CheckoutRequestID
+  processingStatus String    @default("PENDING") // PENDING, PROCESSED, FAILED, DUPLICATE
+  rawPayload       String?
+  receivedAt       DateTime  @default(now())
+  processedAt      DateTime?
+
+  @@map("webhook_events")
+}
